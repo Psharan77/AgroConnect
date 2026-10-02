@@ -8,7 +8,7 @@ services:
       MYSQL_DATABASE: agroconnect
       MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306" # Bound to localhost for local dev; not exposed externally
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -35,7 +35,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DATABASE_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080" # Bound to localhost for local dev; Nginx handles external API requests
     networks:
       - agro-network
 
@@ -49,7 +49,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "3000:80"
+      - "3000:80" # Nginx edge router (Change to 80:80 for production)
     networks:
       - agro-network
 
