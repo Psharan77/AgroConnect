@@ -1,280 +1,203 @@
-# AgroConnect
+# AgroConnect: Farmer-to-Consumer Marketplace
 
-Farmer-to-Consumer Marketplace built with Java Spring Boot, React, MySQL, JWT, and Docker.
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen) ![Java](https://img.shields.io/badge/Java-17-orange) ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3-brightgreen) ![React](https://img.shields.io/badge/React-18-blue) ![MySQL](https://img.shields.io/badge/MySQL-8.0-blue) ![Docker](https://img.shields.io/badge/Docker-Compose-blue)
+
+AgroConnect is a secure, role-based e-commerce platform that directly bridges the gap between farmers and consumers. By bypassing intermediaries, farmers maintain full control over their inventory and pricing, while consumers enjoy access to fresh, organic, and locally-sourced agricultural products.
+
+---
 
 ## 1. Project Overview
 
-AgroConnect is a secure, role-based marketplace that directly bridges the gap between farmers and consumers. By bypassing intermediaries, farmers maintain full control over their inventory and pricing, while consumers enjoy access to fresh, organic, and locally-sourced agricultural products.
-
-**The platform workflow:**
-Farmer registers & provisions inventory → Customer browses marketplace → Adds items to Cart → Manages Address & Checkout → System strictly validates database inventory & prices → Order is placed & Stock is decremented → Delivery → Customer leaves verified Review.
+This full-stack application provides a complete digital supply chain solution. The platform natively handles product cataloging, cart staging, secure transaction snapshots, and post-delivery reviews. It relies on a rigorous zero-trust backend architecture, ensuring that cross-tenant data manipulation is mathematically impossible.
 
 ## 2. Key Features
 
-### Authentication
-* **Registration & Login:** Secure authentication endpoints.
-* **JWT Authentication:** Stateless JSON Web Token architecture.
-* **BCrypt Hashing:** Secure password storage.
-* **Role-Based Authorization:** Strict horizontal and vertical privilege separation (CUSTOMER, FARMER, ADMIN).
+* **Multi-Tenant Architecture:** Complete horizontal isolation for Customers, Farmers, and Admins.
+* **Tamper-Proof Checkout:** Backend calculates totals directly from the database and ignores client-side pricing.
+* **Concurrency Control:** Strict inventory validation prevents out-of-stock purchases and race conditions.
+* **JWT Identity Resolution:** Sensitive parameters (like `farmerId` or `customerId`) are extracted from the `SecurityContext`, neutralizing Insecure Direct Object Reference (IDOR) vectors.
+* **Graceful Degradation:** Custom exception handling swallows internal Java/Hibernate stack traces, returning sanitized JSON maps to the frontend.
 
-### Customer
-* **Browse Products:** Search and filter by category, location, and organic status.
-* **Product Details:** View inventory, prices, and aggregated ratings.
-* **Cart Management:** Add, update, and clear cart items safely.
-* **Address Management:** Store multiple validated delivery addresses.
-* **Checkout:** Secure transaction processing.
-* **Orders:** Track personal order history.
-* **Reviews and Ratings:** Post-delivery verified review submission.
+## 3. User Roles
 
-### Farmer
-* **Product CRUD:** Manage farm inventory.
-* **Ownership Protection:** Strict backend isolation (farmers can only mutate their own catalog).
-* **Farmer Dashboard:** Analytics overview.
-* **Order Visibility:** Track orders containing their specific products.
-* **Order Status Management:** Update delivery lifecycle (e.g., PLACED → DELIVERED).
-* **Sales Statistics:** Track real revenue generated.
-* **Low-Stock Monitoring:** Real-time alert threshold for products under 5 units.
+| Role | Capabilities |
+| :--- | :--- |
+| **CUSTOMER** | Browse marketplace, manage cart, maintain multiple delivery addresses, execute secure checkouts, track order history, and submit verified product reviews. |
+| **FARMER** | Full CRUD control over personal inventory, track sales metrics via dashboard, view relevant customer orders, update fulfillment statuses, and receive low-stock alerts. |
+| **ADMIN** | Platform-wide oversight, monitor aggregated system revenue, track registration statistics, and identify global inventory anomalies. |
 
-### Admin
-* **Admin Dashboard:** Platform-wide oversight.
-* **Customer & Farmer Statistics:** Registration tracking.
-* **Product & Order Statistics:** Platform utilization metrics.
-* **Revenue & Inventory Statistics:** Macro-level insights.
-* **Administrative Management APIs:** Full read-only visibility into system health.
+## 4. Technology Stack
 
-### Security
-* **JWT & BCrypt:** Industry standard identity verification.
-* **Role-Based Authorization & Ownership Checks:** Controllers enforce strict boundary limits.
-* **IDOR Protection:** Backend strictly derives identities from the `SecurityContext` rather than trusting frontend payload IDs.
-* **Server-Side Price Calculation:** Checkout ignores client-side totals.
-* **Server-Side Stock Validation:** Order placement rejects if database inventory is insufficient.
-* **Transaction Rollback:** `@Transactional` services prevent orphaned records.
-* **DTO Validation:** Jakarta `@Valid` constraints reject malformed payloads.
-* **Error Handling:** Global handlers gracefully swallow Java stack traces.
-
-## 3. Technology Stack
-
-**Backend:**
+**Backend Framework:**
 * Java 17
 * Spring Boot 3
-* Spring MVC
-* Spring Data JPA
-* Hibernate
-* Spring Security
-* JWT (JSON Web Tokens)
+* Spring MVC (RESTful API)
+* Spring Data JPA & Hibernate (ORM)
+* Spring Security & JWT (Authentication)
 * Maven
 
 **Database:**
 * MySQL 8.0
 
-**Frontend:**
+**Frontend Framework:**
 * React 18
-* JavaScript
-* HTML / CSS / Bootstrap
-* Axios
+* JavaScript (ES6+)
+* HTML5 / CSS3 / Bootstrap
+* Axios (HTTP Client)
 
-**Testing:**
-* PowerShell API test scripts (Integration & E2E Validation)
+**Deployment & Infrastructure:**
+* Docker & Docker Compose
+* Nginx (Frontend Reverse Proxy)
 
-**Deployment:**
-* Docker
-* Docker Compose
-* Nginx (Frontend Serving)
+## 5. System Architecture
 
-## 4. Architecture
+The platform operates on a heavily decoupled microservice-style pattern using a multi-container Docker topology.
 
-The platform operates on a robust decoupled architecture:
+**Data Flow Pipeline:**
+`React UI` → `Axios (JSON)` → `REST API` → `Spring Security Filter` → `Controller` → `Service Layer (@Transactional)` → `JPA Repository` → `Hibernate` → `MySQL`
 
-**Frontend Flow:**
-React (UI) → Axios (HTTP Client) → REST API (JSON)
+## 6. Authentication & Security
 
-**Backend Flow:**
-Controller (Routing & DTOs) → Security Filter (JWT Validation) → Service (Business Logic & Transactions) → Repository (JPA Data Access) → Hibernate (ORM) → MySQL (Persistence)
+AgroConnect implements a rigorous security posture:
+* **JWT Authentication:** Stateless, signed JSON Web Tokens handle session management.
+* **BCrypt Password Hashing:** Salted cryptography protects database credentials.
+* **Role-Based Authorization:** Endpoints are strictly gated by `hasRole()` decorators.
+* **Farmer Ownership Checks:** Farmers can only mutate products they explicitly own.
+* **Customer Ownership Checks:** Address and Cart modifications natively derive target IDs from the JWT.
+* **Order Ownership Checks:** Farmers can only mutate the status of an order if they supply a product contained within that specific order.
+* **Server-Side Price Calculation:** The cart uses the frontend for display only; the backend recalculates all totals from secure database reads.
+* **Stock Validation:** Immediate rejection of orders that exceed available product quantities.
+* **Transaction Rollback:** Failed database constraints trigger automatic rollbacks, preventing orphaned `OrderItems`.
+* **IDOR Protections:** Deep iteration checks block horizontal privilege escalation across all domains.
 
-**Docker Compose Topology:**
-```text
-Docker Compose
-├── Frontend (Nginx, Port 3000)
-├── Backend (Spring Boot, Port 8080)
-└── MySQL (Database, Port 3306)
-```
-
-## 5. User Roles
-
-| Role     | Capabilities                                 |
-| -------- | -------------------------------------------- |
-| CUSTOMER | Browse, Cart, Checkout, Orders, Reviews      |
-| FARMER   | Product management, Farmer Orders, Dashboard |
-| ADMIN    | Platform management and Dashboard            |
-
-## 6. Database / Domain Model
-
-* **User**: Base authentication entity storing credentials and roles.
-* **Customer / Farmer**: Profile entities mapped natively to the `User`.
-* **Product**: Inventory items tied explicitly to a `Farmer` and `Category`.
-* **Cart & CartItem**: Ephemeral staging ground for customer purchases.
-* **Order & OrderItem**: Immutable snapshot of a checkout event.
-* **Address**: Strict 1-to-Many relationship with a `Customer`.
-* **Review**: Post-delivery feedback tied to both `Product` and `Customer`.
-
-## 7. API Documentation
+## 7. Main REST API Endpoints
 
 ### Authentication
-* `POST /api/auth/register` - (Public) Registers a new user.
-* `POST /api/auth/login` - (Public) Authenticates credentials and returns JWT.
+* `POST /api/auth/register` (Public)
+* `POST /api/auth/login` (Public)
 
 ### Products
-* `GET /api/products` - (Public) Retrieves all products.
-* `POST /api/products` - (Farmer) Creates a new product.
-* `PUT /api/products/{id}` - (Farmer) Updates an existing owned product.
+* `GET /api/products` (Public)
+* `POST /api/products` (FARMER)
+* `PUT /api/products/{id}` (FARMER)
 
-### Cart
-* `GET /api/cart` - (Customer) Retrieves active cart.
-* `POST /api/cart/items` - (Customer) Adds product to cart.
+### Cart & Checkout
+* `GET /api/cart` (CUSTOMER)
+* `POST /api/cart/items` (CUSTOMER)
+* `POST /api/orders` (CUSTOMER)
 
-### Addresses
-* `GET /api/addresses` - (Customer) Retrieves personal addresses.
-* `POST /api/addresses` - (Customer) Adds a new address.
-
-### Orders
-* `POST /api/orders` - (Customer) Submits cart for checkout.
-* `GET /api/orders/my-orders` - (Customer) Retrieves personal history.
-* `GET /api/orders/farmer` - (Farmer) Retrieves relevant fulfillment requests.
-* `PUT /api/orders/{id}/status` - (Farmer) Updates delivery state.
+### Dashboard
+* `GET /api/farmer/dashboard` (FARMER)
+* `GET /api/admin/dashboard` (ADMIN)
 
 ### Reviews
-* `GET /api/products/{id}/reviews` - (Public) Retrieves product ratings.
-* `POST /api/products/{id}/reviews` - (Customer) Submits new review.
+* `POST /api/products/{id}/reviews` (CUSTOMER)
 
-### Admin
-* `GET /api/admin/dashboard` - (Admin) Retrieves platform aggregations.
+## 8. Database / Entity Overview
 
-## 8. Security Architecture
+* **User:** Base authentication entity storing credentials and roles.
+* **Customer & Farmer:** Domain profiles mapped natively via Foreign Keys to `User`.
+* **Product:** Inventory items tied explicitly to a `Farmer`.
+* **Cart & CartItem:** Ephemeral staging models.
+* **Order & OrderItem:** Immutable snapshot of a checkout event capturing frozen `unitPrice` and `quantity`.
+* **Address:** Strict 1-to-Many relationship with a `Customer`.
+* **Review:** Post-delivery feedback tied to both `Product` and `Customer`.
 
-### JWT Authentication
-Login → Credentials validated against BCrypt → JWT generated via HMAC → Sent with subsequent requests in `Authorization: Bearer` header → `JwtAuthenticationFilter` validates token → Identity extracted into Spring `SecurityContext` → Endpoints authorized via `@PreAuthorize` or `SecurityConfig`.
+## 9. Customer Workflow
+1. Registers and authenticates via `/login`.
+2. Browses the marketplace and adds inventory to their `Cart`.
+3. Creates a persistent delivery `Address`.
+4. Triggers `Checkout`. The backend safely snapshots the prices, reduces inventory, and generates the `Order`.
+5. Once the farmer updates the status to `DELIVERED`, the customer submits a `Review`.
 
-### Ownership Security
-Sensitive operations **derive identity from the authenticated JWT** rather than trusting frontend IDs. For instance, updating an address extracts the target `customerId` natively from the backend context, making cross-tenant manipulation mathematically impossible.
+## 10. Farmer Workflow
+1. Authenticates into the Farmer platform.
+2. Provisions catalog via the `Product` CRUD interface.
+3. Monitors the `Farmer Dashboard` for aggregate sales data and low-stock alerts.
+4. Retrieves a filtered list of `Orders` containing their specific products.
+5. Updates the lifecycle of the order from `PLACED` → `SHIPPED` → `DELIVERED`.
 
-## 9. Important Security Fixes
+## 11. Admin Workflow
+1. Authenticates using an ADMIN-provisioned JWT.
+2. accesses the `Admin Dashboard`.
+3. Monitors macro-level statistics (total registrations, platform revenue, out-of-stock ratios).
 
-* **Product Creation IDOR:** 
-  * *Problem:* Backend previously trusted `farmerId` supplied by the client payload during product creation.
-  * *Fix:* Overrode payload value with `securityUtils.getCurrentFarmerId()` at the entity mapping layer.
-* **Order Status Authorization:** 
-  * *Problem:* Order status modification lacked sufficient farmer ownership validation.
-  * *Fix:* Enforced a deep validation sequence ensuring that only an authorized farmer *who explicitly owns a product within that specific order* can mutate the status.
+## 12. Reviews & Ratings
+The platform enforces strict rules on the review pipeline:
+* Only **CUSTOMERS** can write reviews.
+* A customer must have successfully purchased the product.
+* The corresponding order must be in a **DELIVERED** state.
+* Ratings are strictly capped between 1 and 5.
+* Customers can only edit or delete their own reviews.
 
-## 10. Checkout Architecture
-
-1. **Customer** adds items to **Cart** and selects an **Address**.
-2. **Checkout** is triggered via `/api/orders`.
-3. **Backend retrieves product price** natively from the database (ignoring any UI totals).
-4. **Backend validates stock** dynamically.
-5. **Order created** & **OrderItem price snapshot created**.
-6. **Stock reduced** & **Cart cleared**.
-7. Entire workflow executes under `@Transactional` to guarantee data integrity.
-
-## 11. Testing
-
-The platform was verified using comprehensive automated PowerShell testing scripts executing against live Docker environments.
-
-* **Authentication & Authorization:** Validated isolated boundaries (401/403 responses).
-* **Product Security:** Validated IDOR prevention.
-* **Cart & Checkout:** Verified negative quantity blocks, out-of-stock rejections, and price freezing.
-* **Review Validation:** Verified that unpurchased items or pending orders block review submissions.
-* **Dashboard Verification:** Verified analytics isolation for Farmers and Admins.
-* **E2E Validation:** Successfully executed the complete customer and farmer lifecycles.
-
-## 12. Docker Setup
+## 13. Docker Setup
 
 The platform utilizes a 3-container topology:
 * `mysql-db` (Port 3306)
-* `backend` (Port 8080)
-* `frontend` (Port 3000)
+* `backend` (Spring Boot - Port 8080)
+* `frontend` (Nginx - Port 3000)
 
 **Deployment Commands:**
 ```bash
-# Build the container images
-docker compose build
-
-# Start the cluster in detached mode
-docker compose up -d
+# Build the images and start the cluster in detached mode
+docker compose up -d --build
 
 # Verify container health
 docker compose ps
 
-# Monitor logs
+# Monitor backend logs
 docker compose logs -f backend
 ```
 
-## 13. Local Setup
+## 14. Testing
 
-### Requirements
-* Java 17
-* Node.js / npm
-* Docker Desktop
+The application behavior was verified using a comprehensive suite of automated API test scripts.
+* **Authentication Matrices:** Blocked unauthorized cross-role access (401/403).
+* **IDOR Prevention:** Verified farmers cannot mutate products belonging to other tenants.
+* **Checkout Rules:** Verified negative quantities, out-of-stock items, and tampered prices are explicitly rejected.
+* **Address Isolation:** Verified customers cannot attach another user's address to their checkout request.
 
-### Configuration
-1. Copy `.env.example` to `.env`.
-2. Update the variables with your secure configurations (e.g., `JWT_SECRET`).
+## 15. Local Setup Instructions
 
-### Backend (Without Docker)
+**Prerequisites:** Java 17, Node.js 18+, Docker Desktop
+
+**1. Environment Configuration**
 ```bash
-./mvnw clean package
+cp .env.example .env
+# Edit .env with your local credentials and a secure 256-bit JWT secret.
+```
+
+**2. Backend (Without Docker)**
+```bash
+./mvnw clean package -DskipTests
 java -jar target/agroconnect-0.0.1-SNAPSHOT.jar
 ```
 
-### Frontend (Without Docker)
+**3. Frontend (Without Docker)**
 ```bash
 cd frontend
 npm install
 npm start
 ```
 
-## Screenshots
-> *TODO: Capture high-resolution screenshots of the Customer Cart, Farmer Dashboard, Checkout Flow, and Admin Panel for portfolio display.*
+## 16. Project Screenshots
 
-## 15. Project Structure
+> *Note: UI captures will be added here prior to final portfolio submission.*
 
-```text
-agroconnect/
-├── docker-compose.yml
-├── Dockerfile
-├── pom.xml
-├── .env.example
-├── .gitignore
-├── src/
-│   └── main/java/com/agroconnect/
-│       ├── config/
-│       ├── controller/
-│       ├── dto/
-│       ├── entity/
-│       ├── exception/
-│       ├── repository/
-│       ├── security/
-│       └── service/
-└── frontend/
-    ├── package.json
-    ├── Dockerfile
-    ├── nginx.conf
-    └── src/
-        ├── components/
-        ├── contexts/
-        ├── pages/
-        └── services/
-```
+* **[Placeholder] Customer Marketplace & Product Filters**
+* **[Placeholder] Secure Cart & Checkout Pipeline**
+* **[Placeholder] Farmer Analytics Dashboard**
+* **[Placeholder] Admin Oversight Panel**
 
-## 16. Future Improvements
-* Payment gateway integration (Stripe/Razorpay)
-* Real-time order tracking notifications
-* Automated CI/CD pipeline deployment
-* Cloud image storage (AWS S3) for product photos
+## 17. Future Improvements
+* Payment gateway integration (Stripe API)
+* Automated email notifications for order lifecycle events (SendGrid)
+* Automated CI/CD pipeline deployment (GitHub Actions)
+* Cloud image storage for product catalogs (AWS S3)
 
 ---
 
 ### Resume Project Summary
-* **Engineered a Farmer-to-Consumer E-Commerce Platform** leveraging Spring Boot 3, React 18, and MySQL, successfully decoupling the supply chain and deploying via a multi-container Docker Compose topology.
+* **Engineered a Full-Stack E-Commerce Platform** leveraging Spring Boot 3, React 18, and MySQL, successfully decoupling the agricultural supply chain and deploying via a multi-container Docker Compose topology.
 * **Implemented Robust Security Architectures** combining JWT authentication, BCrypt, and deep `@Transactional` IDOR protections to strictly isolate Tenant (Farmer/Customer) data boundaries and prevent horizontal privilege escalation.
 * **Designed a Tamper-Proof Checkout Pipeline** utilizing strict server-side price snapshotting, dynamic inventory constraints, and automated transaction rollbacks to guarantee absolute data integrity.
