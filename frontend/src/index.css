@@ -1,0 +1,13 @@
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #f8f9fa;
+}
+
+/* Green theme for the agricultural marketplace */
+:root {
+  --agro-green: #2e7d32;
+  --agro-light-green: #4caf50;
+  --agro-dark: #1b5e20;
+}

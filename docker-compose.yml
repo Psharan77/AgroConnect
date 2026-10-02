@@ -1,0 +1,61 @@
+services:
+  # 1. MySQL Database Container
+  mysql-db:
+    image: mysql:8.0
+    container_name: agroconnect-mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: agroconnect
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - agro-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DATABASE_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Spring Boot Backend Container
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agroconnect-backend
+    restart: always
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: ${DATABASE_URL}
+      SPRING_DATASOURCE_USERNAME: ${DATABASE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DATABASE_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "8080:8080"
+    networks:
+      - agro-network
+
+  # 3. React Frontend Container
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agroconnect-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - agro-network
+
+volumes:
+  mysql_data:
+
+networks:
+  agro-network:
+    driver: bridge
